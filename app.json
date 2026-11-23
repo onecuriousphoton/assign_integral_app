@@ -1,43 +1,43 @@
 {
   "expo": {
-    "name": "my-app",
-    "slug": "my-app",
+    "name": "Integrosaurus",
+    "slug": "assign-integral",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "myapp",
-    "userInterfaceStyle": "automatic",
-    "ios": {
-      "icon": "./assets/expo.icon"
+    "userInterfaceStyle": "light",
+    "scheme": "assign-integral",
+    "icon": "./assets/images/app_icon_dino.png",
+    "splash": {
+      "image": "./assets/images/app_icon_dino.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F5F3EB"
     },
     "android": {
+      "package": "com.assignintegral.app",
+      "edgeToEdgeEnabled": true,
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "foregroundImage": "./assets/images/app_icon_dino.png",
+        "backgroundColor": "#F5F3EB"
       },
-      "predictiveBackGestureEnabled": false
+      "permissions": [
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.VIBRATE",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.SCHEDULE_EXACT_ALARM"
+      ]
     },
-    "web": {
-      "output": "server",
-      "favicon": "./assets/images/favicon.png"
+    "ios": {
+      "bundleIdentifier": "com.assignintegral.app",
+      "supportsTablet": false
     },
     "plugins": [
       "expo-router",
       [
-        "expo-splash-screen",
+        "expo-notifications",
         {
-          "backgroundColor": "#208AEF",
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "color": "#AEEE01"
         }
-      ],
-      "expo-status-bar"
-    ],
-    "experiments": {
-      "typedRoutes": true,
-      "reactCompiler": true
-    }
+      ]
+    ]
   }
 }

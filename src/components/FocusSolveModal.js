@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
+  AppState,
   Modal,
   View,
   Text,
@@ -25,40 +26,53 @@ export default function FocusSolveModal({
 }) {
   const [secondsLeft, setSecondsLeft] = useState(totalSeconds);
   const timerRef = useRef(null);
+  const endTimeRef = useRef(0);
+  const finishedRef = useRef(false);
 
-  const secondsLeftRef = useRef(totalSeconds);
   const onUnsolvedRef = useRef(onUnsolved);
   const hapticsRef = useRef(hapticsEnabled);
 
-  secondsLeftRef.current = secondsLeft;
   onUnsolvedRef.current = onUnsolved;
   hapticsRef.current = hapticsEnabled;
+
+  const getElapsedSeconds = useCallback(() => {
+    const remaining = Math.max(0, Math.ceil((endTimeRef.current - Date.now()) / 1000));
+    return Math.max(1, totalSeconds - remaining);
+  }, [totalSeconds]);
 
   useEffect(() => {
     if (!visible) {
       if (timerRef.current) clearInterval(timerRef.current);
+      finishedRef.current = false;
       return;
     }
 
+    finishedRef.current = false;
+    endTimeRef.current = Date.now() + totalSeconds * 1000;
     setSecondsLeft(totalSeconds);
-    secondsLeftRef.current = totalSeconds;
 
-    timerRef.current = setInterval(() => {
-      setSecondsLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(timerRef.current);
-          if (hapticsRef.current) {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-          }
-          onUnsolvedRef.current?.(totalSeconds);
-          return 0;
+    const syncClock = () => {
+      if (finishedRef.current) return;
+      const remaining = Math.max(0, Math.ceil((endTimeRef.current - Date.now()) / 1000));
+      setSecondsLeft(remaining);
+      if (remaining <= 0) {
+        finishedRef.current = true;
+        if (timerRef.current) clearInterval(timerRef.current);
+        if (hapticsRef.current) {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         }
-        return prev - 1;
-      });
-    }, 1000);
+        onUnsolvedRef.current?.(totalSeconds);
+      }
+    };
+
+    timerRef.current = setInterval(syncClock, 500);
+    const appStateSub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') syncClock();
+    });
 
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
+      appStateSub.remove();
     };
   }, [visible, totalSeconds]);
 
@@ -68,15 +82,20 @@ export default function FocusSolveModal({
       {
         text: 'Give Up',
         style: 'destructive',
-        onPress: () =>
-          onUnsolvedRef.current?.(Math.max(1, totalSeconds - secondsLeftRef.current)),
+        onPress: () => {
+          if (finishedRef.current) return;
+          finishedRef.current = true;
+          onUnsolvedRef.current?.(getElapsedSeconds());
+        },
       },
     ]);
-  }, [totalSeconds]);
+  }, [getElapsedSeconds]);
 
   const handleSwipeComplete = useCallback(() => {
-    onSolved(Math.max(1, totalSeconds - secondsLeftRef.current));
-  }, [onSolved, totalSeconds]);
+    if (finishedRef.current) return;
+    finishedRef.current = true;
+    onSolved(getElapsedSeconds());
+  }, [onSolved, getElapsedSeconds]);
 
   const formatTimer = (sec) => {
     const m = String(Math.floor(sec / 60)).padStart(2, '0');
@@ -106,7 +125,6 @@ export default function FocusSolveModal({
           },
         ]}
       >
-        {/* Header aligned identically to Home date & Logs header (topInset + 12) */}
         <View style={styles.topBar}>
           <View style={styles.liveChip}>
             <View style={[styles.liveDot, isUrgent && { backgroundColor: '#FF2D55' }]} />
@@ -116,8 +134,10 @@ export default function FocusSolveModal({
           <TouchableOpacity
             activeOpacity={0.75}
             onPress={() => {
+              if (finishedRef.current) return;
+              finishedRef.current = true;
               if (hapticsEnabled) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-              onUnsolved(Math.max(1, totalSeconds - secondsLeftRef.current));
+              onUnsolved(getElapsedSeconds());
             }}
             style={styles.giveUpBtn}
           >
@@ -126,7 +146,6 @@ export default function FocusSolveModal({
           </TouchableOpacity>
         </View>
 
-        {/* 2.5D Dark Timer Deck */}
         <View style={styles.timerDeck}>
           <Text style={styles.timerCaption}>
             {isUrgent ? 'FINAL MINUTE · FINISH UP' : 'TIME REMAINING'}
@@ -151,7 +170,6 @@ export default function FocusSolveModal({
           </View>
         </View>
 
-        {/* Spacious 2.5D Paper Math Canvas */}
         <View style={styles.mathCard}>
           <View style={styles.mathCardHeader}>
             <View style={styles.metaPill}>
@@ -174,7 +192,6 @@ export default function FocusSolveModal({
           <Text style={styles.paperHint}>Work it out on paper · Swipe below once solved</Text>
         </View>
 
-        {/* Bottom Swipe Bar */}
         <View style={styles.footer}>
           <SwipeToSolve
             onComplete={handleSwipeComplete}

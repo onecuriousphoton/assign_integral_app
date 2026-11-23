@@ -25,12 +25,12 @@ function LifeHud({ player }) {
   const { isDead, livesRemaining, resurrectionProgress, currentStreak } = player;
 
   const statusMeta = isDead
-    ? { label: 'K.O. · SOLVE 3 TODAY TO RESPAWN', color: '#FF2D55' }
+    ? { label: 'CHOMPED! · SOLVE 3 TODAY TO REVIVE', color: '#FF2D55' }
     : livesRemaining === 3
-    ? { label: 'FULL CHARGE · 3 MISSES TO K.O.', color: '#AEEE01' }
+    ? { label: 'SAFE · 3 MISSES TO CHOMP!', color: '#AEEE01' }
     : livesRemaining === 2
     ? { label: '1 DAY MISSED · STAY SHARP', color: '#FFB800' }
-    : { label: 'LOW BATTERY · SOLVE TODAY OR K.O.', color: '#FF2D55' };
+    : { label: 'DANGER · SOLVE TODAY OR CHOMP!', color: '#FF2D55' };
 
   return (
     <View style={[styles.hudCard, isDead && styles.hudCardDead]}>
@@ -42,7 +42,7 @@ function LifeHud({ player }) {
             <EnergyCoreIcon color={statusMeta.color} size={21} />
           )}
           <DotMatrixText
-            text={isDead ? `REVIVE ${resurrectionProgress}/3` : `HP ${livesRemaining}/3`}
+            text={isDead ? `REVIVE ${resurrectionProgress}/3` : `LIVES ${livesRemaining}/3`}
             dotSize={2.0}
             gap={0.9}
             color="#FFFFFF"

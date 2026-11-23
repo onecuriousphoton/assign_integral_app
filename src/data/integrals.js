@@ -135,11 +135,12 @@ export function getIntegralForDate(dateKey, slot = 0, difficultyFilter = 'ALL') 
 
   const list = pool.length > 0 ? pool : INTEGRALS;
   let hash = 0;
-  const seed = `${dateKey}#${slot}#${difficultyFilter}`;
+  const seed = `${dateKey}#${difficultyFilter}`;
   for (let i = 0; i < seed.length; i++) {
     hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
   }
-  const index = hash % list.length;
+  const baseIndex = hash % list.length;
+  const index = (baseIndex + slot) % list.length;
   return {
     ...list[index],
     dateKey,

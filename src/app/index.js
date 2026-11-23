@@ -11,12 +11,14 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  AppState,
   StatusBar as RNStatusBar,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
+import * as Notifications from 'expo-notifications';
 import {
   Check,
   Clock,
@@ -29,7 +31,6 @@ import {
 
 import { getIntegralForDate } from '../data/integrals';
 import {
-  addDays,
   DEFAULT_SETTINGS,
   evaluatePlayerState,
   formatTime12h,
@@ -44,12 +45,22 @@ import StreakGrid from '../components/StreakGrid';
 import SettingsModal from '../components/SettingsModal';
 import FocusSolveModal from '../components/FocusSolveModal';
 import WoodLogIcon from '../components/WoodLogIcon';
+import LaunchScreen from '../components/LaunchScreen';
+import ManualModal from '../components/ManualModal';
 
 const STORAGE_LOGS_KEY = '@assign_integral_logs_v2';
 const STORAGE_META_KEY = '@assign_integral_meta_v2';
 const STORAGE_SETTINGS_KEY = '@assign_integral_settings_v2';
+const STORAGE_MANUAL_SEEN_KEY = '@assign_integral_manual_seen_v1';
 
-const QUICK_TAGS = ['Substitution', 'By Parts', "King's Property", 'Feynman Trick', 'Trig Sub', 'Leibniz Rule'];
+const QUICK_TAGS = [
+  'Substitution',
+  'By Parts',
+  "King's Property",
+  'Feynman Trick',
+  'Trig Sub',
+  'Leibniz Rule',
+];
 const WEEKDAYS = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 
@@ -113,17 +124,28 @@ const LogItemCard = React.memo(function LogItemCard({ item }) {
 
 function MainApp() {
   const insets = useSafeAreaInsets();
-  const topInset = Math.max(insets.top, Platform.OS === 'android' ? RNStatusBar.currentHeight || 28 : 12);
+  const topInset = Math.max(
+    insets.top,
+    Platform.OS === 'android' ? RNStatusBar.currentHeight || 28 : 12
+  );
   const bottomInset = Math.max(insets.bottom, 16);
 
   const [activeTab, setActiveTab] = useState('HOME');
   const [logFilter, setLogFilter] = useState('ALL');
   const [settingsOpen, setSettingsOpen] = useState(false);
 
+  const [showLaunch, setShowLaunch] = useState(true);
+  const [needsManual, setNeedsManual] = useState(false);
+  const [manualVisible, setManualVisible] = useState(false);
+
   const [logs, setLogs] = useState([]);
-  const [meta, setMeta] = useState({ firstActiveDate: getLocalDateKey(), lastResurrectionDate: null });
+  const [meta, setMeta] = useState({
+    firstActiveDate: getLocalDateKey(),
+    lastResurrectionDate: null,
+  });
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [ready, setReady] = useState(false);
+  const [clockTick, setClockTick] = useState(() => Date.now());
 
   const [focusOpen, setFocusOpen] = useState(false);
 
@@ -132,44 +154,72 @@ function MainApp() {
   const [pendingDuration, setPendingDuration] = useState(0);
   const [noteText, setNoteText] = useState('');
 
+  // Load persisted state on boot
   useEffect(() => {
     (async () => {
       try {
-        const [rawLogs, rawMeta, rawSettings] = await Promise.all([
+        const [rawLogs, rawMeta, rawSettings, manualSeen] = await Promise.all([
           AsyncStorage.getItem(STORAGE_LOGS_KEY),
           AsyncStorage.getItem(STORAGE_META_KEY),
           AsyncStorage.getItem(STORAGE_SETTINGS_KEY),
+          AsyncStorage.getItem(STORAGE_MANUAL_SEEN_KEY),
         ]);
 
         const loadedSettings = rawSettings
           ? { ...DEFAULT_SETTINGS, ...JSON.parse(rawSettings) }
           : DEFAULT_SETTINGS;
 
-        let loadedLogs = rawLogs ? JSON.parse(rawLogs) : [];
-        let loadedMeta = rawMeta
+        const loadedLogs = rawLogs ? JSON.parse(rawLogs) : [];
+        const loadedMeta = rawMeta
           ? JSON.parse(rawMeta)
           : { firstActiveDate: getLocalDateKey(), lastResurrectionDate: null };
-
-        if (loadedSettings.devFreshStart) {
-          const todayKey = getLocalDateKey();
-          loadedLogs = loadedLogs.filter((entry) => entry.dateKey !== todayKey);
-          if (loadedMeta.lastResurrectionDate === todayKey) {
-            loadedMeta = { ...loadedMeta, lastResurrectionDate: null };
-          }
-          await AsyncStorage.setItem(STORAGE_LOGS_KEY, JSON.stringify(loadedLogs));
-        }
 
         setSettings(loadedSettings);
         setLogs(loadedLogs);
         setMeta(loadedMeta);
+
+        if (!manualSeen) {
+          setNeedsManual(true);
+        }
       } finally {
         setReady(true);
       }
     })();
   }, []);
 
-  const player = useMemo(() => evaluatePlayerState(logs, meta), [logs, meta]);
-  const windowInfo = useMemo(() => getWindowState(settings), [settings, activeTab, logs.length]);
+  const handleLaunchFinish = useCallback(() => {
+    setShowLaunch(false);
+    if (needsManual) {
+      setManualVisible(true);
+    }
+  }, [needsManual]);
+
+  const handleDismissManual = useCallback(async () => {
+    setManualVisible(false);
+    setNeedsManual(false);
+    await AsyncStorage.setItem(STORAGE_MANUAL_SEEN_KEY, 'true');
+  }, []);
+
+  // Refresh date/window on foreground resume and notification tap
+  useEffect(() => {
+    const appStateSub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') setClockTick(Date.now());
+    });
+    const notifSub = Notifications.addNotificationResponseReceivedListener(() => {
+      setClockTick(Date.now());
+      setActiveTab('HOME');
+    });
+    return () => {
+      appStateSub.remove();
+      notifSub.remove();
+    };
+  }, []);
+
+  const player = useMemo(() => evaluatePlayerState(logs, meta), [logs, meta, clockTick]);
+  const windowInfo = useMemo(
+    () => getWindowState(settings),
+    [settings, activeTab, logs.length, clockTick]
+  );
 
   const dateDisplay = useMemo(() => {
     const now = new Date();
@@ -183,7 +233,7 @@ function MainApp() {
   useEffect(() => {
     if (!ready) return;
     syncScheduledNotifications(player.todaySolvedCount > 0, settings).catch(() => {});
-  }, [ready, player.todaySolvedCount, settings]);
+  }, [ready, player.todaySolvedCount, player.today, settings]);
 
   const currentSlot = player.isDead ? Math.min(player.todaySolvedCount, 2) : 0;
   const currentIntegral = useMemo(
@@ -224,7 +274,9 @@ function MainApp() {
       difficulty: currentIntegral.difficulty,
       topic: currentIntegral.topic,
       status: pendingStatus,
-      note: noteText.trim() || (pendingStatus === 'solved' ? 'Solved cleanly.' : 'Timed out / skipped.'),
+      note:
+        noteText.trim() ||
+        (pendingStatus === 'solved' ? 'Solved cleanly.' : 'Timed out / skipped.'),
       timeTakenSec: pendingDuration,
       createdAt: new Date().toISOString(),
     };
@@ -251,46 +303,38 @@ function MainApp() {
     await AsyncStorage.setItem(STORAGE_SETTINGS_KEY, JSON.stringify(nextSettings));
   };
 
-  const handleResetToday = async () => {
-    const filtered = logs.filter((l) => l.dateKey !== player.today);
-    setLogs(filtered);
-    await AsyncStorage.setItem(STORAGE_LOGS_KEY, JSON.stringify(filtered));
-    setSettingsOpen(false);
-    setActiveTab('HOME');
-  };
-
-  const handleSimulateDead = async () => {
-    const fourDaysAgo = addDays(player.today, -4);
-    const nextMeta = { firstActiveDate: fourDaysAgo, lastResurrectionDate: null };
-    setLogs([]);
-    setMeta(nextMeta);
-    await Promise.all([
-      AsyncStorage.setItem(STORAGE_LOGS_KEY, JSON.stringify([])),
-      AsyncStorage.setItem(STORAGE_META_KEY, JSON.stringify(nextMeta)),
-    ]);
-    setSettingsOpen(false);
-    setActiveTab('HOME');
-  };
-
-  const handleWipeAll = async () => {
-    const cleanMeta = { firstActiveDate: player.today, lastResurrectionDate: null };
-    setLogs([]);
-    setMeta(cleanMeta);
-    await Promise.all([
-      AsyncStorage.setItem(STORAGE_LOGS_KEY, JSON.stringify([])),
-      AsyncStorage.setItem(STORAGE_META_KEY, JSON.stringify(cleanMeta)),
-    ]);
-    setSettingsOpen(false);
-    setActiveTab('HOME');
-  };
-
-  const handleTestNotification = async () => {
-    const ok = await sendTestNotification(currentIntegral, settings);
+  const handleWipeAll = () => {
     Alert.alert(
-      ok ? 'Test Notification Queued' : 'Permission Needed',
-      ok
-        ? 'Minimize or stay on screen — your formatted alert arrives in 3 seconds.'
-        : 'Enable notifications in your device settings first.'
+      'Reset all logs & streaks?',
+      'This permanently clears your history and restarts your streak from today.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset Everything',
+          style: 'destructive',
+          onPress: async () => {
+            const cleanMeta = { firstActiveDate: player.today, lastResurrectionDate: null };
+            setLogs([]);
+            setMeta(cleanMeta);
+            await Promise.all([
+              AsyncStorage.setItem(STORAGE_LOGS_KEY, JSON.stringify([])),
+              AsyncStorage.setItem(STORAGE_META_KEY, JSON.stringify(cleanMeta)),
+            ]);
+            setSettingsOpen(false);
+            setActiveTab('HOME');
+          },
+        },
+      ]
+    );
+  };
+
+const handleTestNotification = async () => {
+    const res = await sendTestNotification(currentIntegral, settings);
+    Alert.alert(
+      res.ok ? 'Test Notification Queued' : 'Notification Error',
+      res.ok
+        ? 'Alert arrives in 3 seconds.'
+        : res.error
     );
   };
 
@@ -327,7 +371,11 @@ function MainApp() {
               </View>
             </View>
 
-            <TouchableOpacity activeOpacity={0.75} onPress={openSettings} style={styles.settingsBtn}>
+            <TouchableOpacity
+              activeOpacity={0.75}
+              onPress={openSettings}
+              style={styles.settingsBtn}
+            >
               <SlidersHorizontal size={18} color="#111113" strokeWidth={2.3} />
             </TouchableOpacity>
           </View>
@@ -412,7 +460,11 @@ function MainApp() {
               <WoodLogIcon size={20} color="#111113" strokeWidth={2.2} />
               <DotMatrixText text="LOGS" dotSize={2.3} gap={0.9} color="#111113" />
             </View>
-            <TouchableOpacity activeOpacity={0.75} onPress={openSettings} style={styles.settingsBtn}>
+            <TouchableOpacity
+              activeOpacity={0.75}
+              onPress={openSettings}
+              style={styles.settingsBtn}
+            >
               <SlidersHorizontal size={18} color="#111113" strokeWidth={2.3} />
             </TouchableOpacity>
           </View>
@@ -461,8 +513,14 @@ function MainApp() {
             style={[styles.tabItem, activeTab === 'HOME' && styles.tabItemActive]}
             onPress={() => setActiveTab('HOME')}
           >
-            <Home size={18} color={activeTab === 'HOME' ? '#111113' : '#A1A1AA'} strokeWidth={2.3} />
-            <Text style={[styles.tabLabel, activeTab === 'HOME' && styles.tabLabelActive]}>Home</Text>
+            <Home
+              size={18}
+              color={activeTab === 'HOME' ? '#111113' : '#A1A1AA'}
+              strokeWidth={2.3}
+            />
+            <Text style={[styles.tabLabel, activeTab === 'HOME' && styles.tabLabelActive]}>
+              Home
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -482,7 +540,7 @@ function MainApp() {
         </View>
       </View>
 
-      {/* True Full-Screen Focus Solve Modal */}
+      {/* Full-Screen Focus Solve Modal */}
       <FocusSolveModal
         visible={focusOpen}
         integral={currentIntegral}
@@ -553,7 +611,7 @@ function MainApp() {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* True Full-Screen Settings Modal */}
+      {/* Full-Screen Settings Modal */}
       <SettingsModal
         visible={settingsOpen}
         onClose={() => setSettingsOpen(false)}
@@ -561,10 +619,23 @@ function MainApp() {
         bottomInset={bottomInset}
         settings={settings}
         onUpdateSettings={updateSettings}
-        onResetToday={handleResetToday}
-        onSimulateDead={handleSimulateDead}
         onTestNotification={handleTestNotification}
         onWipeAll={handleWipeAll}
+      />
+
+      {/* First-Time User Manual */}
+      <ManualModal
+        visible={manualVisible}
+        topInset={topInset}
+        bottomInset={bottomInset}
+        onDismiss={handleDismissManual}
+      />
+
+      {/* 1.7s Launch Screen */}
+      <LaunchScreen
+        visible={showLaunch}
+        bottomInset={bottomInset}
+        onFinish={handleLaunchFinish}
       />
     </View>
   );

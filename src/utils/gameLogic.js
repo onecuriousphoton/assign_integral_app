@@ -8,7 +8,7 @@ export const DEFAULT_SETTINGS = {
   timerMinutes: 10,
   hapticsEnabled: true,
   difficultyFilter: 'ALL', // 'ALL' | 'WARMUP' | 'CLASSIC' | 'HARD'
-  devFreshStart: true, // Starts with today's question unsolved in dev mode
+  devFreshStart: false,
 };
 
 export function getLocalDateKey(date = new Date()) {

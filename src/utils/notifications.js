@@ -7,6 +7,7 @@ const CHANNEL_ID = 'assign-integral-v2';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
+    shouldShowAlert: true,
     shouldShowBanner: true,
     shouldShowList: true,
     shouldPlaySound: true,
@@ -37,7 +38,8 @@ export async function initNotifications() {
 }
 
 function buildMorningContent(q, settings) {
-  const endTotalMin = settings.morningHour * 60 + settings.morningMinute + (settings.windowHours || 5) * 60;
+  const endTotalMin =
+    settings.morningHour * 60 + settings.morningMinute + (settings.windowHours || 5) * 60;
   const endStr = formatTime12h(Math.floor((endTotalMin % 1440) / 60), endTotalMin % 60);
 
   return {
@@ -46,6 +48,7 @@ function buildMorningContent(q, settings) {
     body: `${q.notifText}\nSolve before ${endStr} to keep your streak alive.`,
     sound: true,
     color: '#AEEE01',
+    priority: Notifications.AndroidNotificationPriority.MAX,
     data: { dateKey: q.dateKey, phase: 'MORNING' },
   };
 }
@@ -57,6 +60,7 @@ function buildNightContent(q, settings) {
     body: `${q.notifText}\nStill unsolved today — tap to solve before midnight.`,
     sound: true,
     color: '#AEEE01',
+    priority: Notifications.AndroidNotificationPriority.MAX,
     data: { dateKey: q.dateKey, phase: 'NIGHT' },
   };
 }
@@ -72,13 +76,14 @@ export async function syncScheduledNotifications(todayAlreadySolved, settings = 
   const now = new Date();
   const todayKey = getLocalDateKey(now);
 
-  for (let offset = 0; offset < 7; offset++) {
+  // Rolling 14-day schedule (28 local notifications)
+  for (let offset = 0; offset < 14; offset++) {
     const dateKey = addDays(todayKey, offset);
     const [y, m, d] = dateKey.split('-').map(Number);
     const q = getIntegralForDate(dateKey, 0, settings.difficultyFilter);
 
     const morningDate = new Date(y, m - 1, d, settings.morningHour, settings.morningMinute, 0);
-    if (morningDate > now) {
+    if (morningDate.getTime() > now.getTime() + 5000) {
       await Notifications.scheduleNotificationAsync({
         content: buildMorningContent(q, settings),
         trigger: {
@@ -91,7 +96,7 @@ export async function syncScheduledNotifications(todayAlreadySolved, settings = 
 
     const skipTonight = offset === 0 && todayAlreadySolved;
     const nightDate = new Date(y, m - 1, d, settings.nightHour, settings.nightMinute, 0);
-    if (!skipTonight && nightDate > now) {
+    if (!skipTonight && nightDate.getTime() > now.getTime() + 5000) {
       await Notifications.scheduleNotificationAsync({
         content: buildNightContent(q, settings),
         trigger: {
@@ -105,19 +110,22 @@ export async function syncScheduledNotifications(todayAlreadySolved, settings = 
 }
 
 export async function sendTestNotification(integral, settings = DEFAULT_SETTINGS) {
-  const granted = await initNotifications();
-  if (!granted) return false;
+  try {
+    const granted = await initNotifications();
+    if (!granted) return { ok: false, error: 'Notification permission not granted.' };
 
-  const INTERVAL_TYPE = Notifications.SchedulableTriggerInputTypes?.TIME_INTERVAL ?? 'timeInterval';
+    const DATE_TYPE = Notifications.SchedulableTriggerInputTypes?.DATE ?? 'date';
 
-  await Notifications.scheduleNotificationAsync({
-    content: buildMorningContent(integral, settings),
-    trigger: {
-      type: INTERVAL_TYPE,
-      seconds: 3,
-      repeats: false,
-      channelId: CHANNEL_ID,
-    },
-  });
-  return true;
+    await Notifications.scheduleNotificationAsync({
+      content: buildMorningContent(integral, settings),
+      trigger: {
+        type: DATE_TYPE,
+        date: new Date(Date.now() + 3000),
+        channelId: CHANNEL_ID,
+      },
+    });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err?.message || 'Failed to schedule notification.' };
+  }
 }

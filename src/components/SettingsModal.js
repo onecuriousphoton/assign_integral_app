@@ -11,11 +11,8 @@ import {
 import {
   Bell,
   Clock,
-  FlaskConical,
   Minus,
   Plus,
-  RotateCcw,
-  Skull,
   Trash2,
   Vibrate,
   X,
@@ -33,8 +30,6 @@ export default function SettingsModal({
   bottomInset,
   settings,
   onUpdateSettings,
-  onResetToday,
-  onSimulateDead,
   onTestNotification,
   onWipeAll,
 }) {
@@ -92,7 +87,7 @@ export default function SettingsModal({
 
             <View style={styles.rowBetween}>
               <View>
-                <Text style={styles.rowTitle}>Daily Question Drop</Text>
+                <Text style={styles.rowTitle}>First-Bell</Text>
                 <Text style={styles.rowSub}>First alert of the day</Text>
               </View>
               <View style={styles.stepper}>
@@ -118,8 +113,8 @@ export default function SettingsModal({
 
             <View style={styles.rowBetween}>
               <View>
-                <Text style={styles.rowTitle}>Second-Chance Alert</Text>
-                <Text style={styles.rowSub}>Same question if unsolved</Text>
+                <Text style={styles.rowTitle}>Second-Bell</Text>
+                <Text style={styles.rowSub}>Alert if missed first</Text>
               </View>
               <View style={styles.stepper}>
                 <TouchableOpacity
@@ -150,7 +145,6 @@ export default function SettingsModal({
           <Text style={styles.sectionLabel}>SESSION & PREFERENCES</Text>
           <View style={styles.card}>
             <View style={styles.rowIconText}>
-              <Clock size={15} color="#111113" strokeWidth={2.1} />
               <Text style={styles.rowTitle}>Solve Timer Duration</Text>
             </View>
             <View style={styles.pillRow}>
@@ -213,44 +207,12 @@ export default function SettingsModal({
             </View>
           </View>
 
-          {/* Developer Mode Tools */}
-          <Text style={styles.sectionLabel}>DEVELOPER MODE</Text>
+          {/* Data Management */}
+          <Text style={styles.sectionLabel}>RESET</Text>
           <View style={styles.card}>
-            <View style={styles.rowBetween}>
-              <View style={{ flex: 1, paddingRight: 10 }}>
-                <View style={styles.rowIconText}>
-                  <FlaskConical size={15} color="#111113" strokeWidth={2.1} />
-                  <Text style={styles.rowTitle}>Start Fresh on Reload</Text>
-                </View>
-                <Text style={styles.rowSub}>
-                  Always boot with today's integral unsolved while developing
-                </Text>
-              </View>
-              <Switch
-                value={settings.devFreshStart}
-                onValueChange={(v) => onUpdateSettings({ ...settings, devFreshStart: v })}
-                trackColor={{ false: '#E4E4E0', true: '#AEEE01' }}
-                thumbColor="#111113"
-              />
-            </View>
-
-            <View style={styles.divider} />
-
-            <View style={styles.devBtnGrid}>
-              <TouchableOpacity style={styles.devActionBtn} onPress={onResetToday}>
-                <RotateCcw size={14} color="#111113" strokeWidth={2.2} />
-                <Text style={styles.devActionText}>Reset Today</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.devActionBtn} onPress={onSimulateDead}>
-                <Skull size={14} color="#E11D48" strokeWidth={2.2} />
-                <Text style={[styles.devActionText, { color: '#E11D48' }]}>Simulate K.O.</Text>
-              </TouchableOpacity>
-            </View>
-
             <TouchableOpacity style={styles.wipeBtn} onPress={onWipeAll}>
               <Trash2 size={14} color="#E11D48" strokeWidth={2.2} />
-              <Text style={styles.wipeText}>Wipe All Logs & Start Clean</Text>
+              <Text style={styles.wipeText}>Reset All Logs & Streaks</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -404,27 +366,6 @@ const styles = StyleSheet.create({
   },
   choiceTextActive: {
     color: '#AEEE01',
-  },
-  devBtnGrid: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  devActionBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 7,
-    backgroundColor: '#F5F5F0',
-    paddingVertical: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#E5E5DF',
-  },
-  devActionText: {
-    color: '#111113',
-    fontSize: 12,
-    fontWeight: '700',
   },
   wipeBtn: {
     flexDirection: 'row',
