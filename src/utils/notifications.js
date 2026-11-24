@@ -65,7 +65,11 @@ function buildNightContent(q, settings) {
   };
 }
 
-export async function syncScheduledNotifications(todayAlreadySolved, settings = DEFAULT_SETTINGS) {
+export async function syncScheduledNotifications(
+  todayAlreadySolved,
+  settings = DEFAULT_SETTINGS,
+  solvedIds = new Set()
+) {
   await Notifications.cancelAllScheduledNotificationsAsync();
   if (!settings.notificationsEnabled) return;
 
@@ -76,11 +80,14 @@ export async function syncScheduledNotifications(todayAlreadySolved, settings = 
   const now = new Date();
   const todayKey = getLocalDateKey(now);
 
-  // Rolling 14-day schedule (28 local notifications)
+  // Track solved + already-scheduled IDs so no two days get the same integral
+  const usedIds = new Set(solvedIds);
+
   for (let offset = 0; offset < 14; offset++) {
     const dateKey = addDays(todayKey, offset);
     const [y, m, d] = dateKey.split('-').map(Number);
-    const q = getIntegralForDate(dateKey, 0, settings.difficultyFilter);
+    const q = getIntegralForDate(dateKey, 0, settings.difficultyFilter, usedIds);
+    usedIds.add(q.id);
 
     const morningDate = new Date(y, m - 1, d, settings.morningHour, settings.morningMinute, 0);
     if (morningDate.getTime() > now.getTime() + 5000) {

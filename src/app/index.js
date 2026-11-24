@@ -221,6 +221,27 @@ function MainApp() {
     [settings, activeTab, logs.length, clockTick]
   );
 
+  const solvedIds = useMemo(() => {
+    const set = new Set();
+    for (const entry of logs) {
+      if (entry.status === 'solved' && entry.integralId) {
+        set.add(entry.integralId);
+      }
+    }
+    return set;
+  }, [logs]);
+
+  useEffect(() => {
+    if (!ready) return;
+    syncScheduledNotifications(player.todaySolvedCount > 0, settings, solvedIds).catch(() => {});
+  }, [ready, player.todaySolvedCount, player.today, settings, solvedIds]);
+
+  const currentSlot = player.isDead ? Math.min(player.todaySolvedCount, 2) : 0;
+  const currentIntegral = useMemo(
+    () => getIntegralForDate(player.today, currentSlot, settings.difficultyFilter, solvedIds),
+    [player.today, currentSlot, settings.difficultyFilter, solvedIds]
+  );
+
   const dateDisplay = useMemo(() => {
     const now = new Date();
     return {
@@ -230,18 +251,8 @@ function MainApp() {
     };
   }, [player.today]);
 
-  useEffect(() => {
-    if (!ready) return;
-    syncScheduledNotifications(player.todaySolvedCount > 0, settings).catch(() => {});
-  }, [ready, player.todaySolvedCount, player.today, settings]);
-
-  const currentSlot = player.isDead ? Math.min(player.todaySolvedCount, 2) : 0;
-  const currentIntegral = useMemo(
-    () => getIntegralForDate(player.today, currentSlot, settings.difficultyFilter),
-    [player.today, currentSlot, settings.difficultyFilter]
-  );
-
   const isTodayCompleted = !player.isDead && player.todaySolvedCount >= 1;
+  const todaySolvedEntry = player.solvedByDay[player.today]?.[0] || currentIntegral;
   const sessionTotalSeconds = settings.timerMinutes * 60;
 
   const openFullScreenSolve = () => {
@@ -269,6 +280,7 @@ function MainApp() {
     const newEntry = {
       id: `${Date.now()}`,
       dateKey: player.today,
+      integralId: currentIntegral.id,
       latex: currentIntegral.latex,
       notifText: currentIntegral.notifText,
       difficulty: currentIntegral.difficulty,
@@ -328,13 +340,11 @@ function MainApp() {
     );
   };
 
-const handleTestNotification = async () => {
+  const handleTestNotification = async () => {
     const res = await sendTestNotification(currentIntegral, settings);
     Alert.alert(
       res.ok ? 'Test Notification Queued' : 'Notification Error',
-      res.ok
-        ? 'Alert arrives in 3 seconds.'
-        : res.error
+      res.ok ? 'Alert arrives in 3 seconds.' : res.error
     );
   };
 
@@ -399,7 +409,9 @@ const handleTestNotification = async () => {
               </View>
 
               <View style={styles.topicPill}>
-                <Text style={styles.topicText}>{currentIntegral.difficulty}</Text>
+                <Text style={styles.topicText}>
+                  {isTodayCompleted ? todaySolvedEntry.difficulty : currentIntegral.difficulty}
+                </Text>
               </View>
             </View>
 
@@ -410,8 +422,8 @@ const handleTestNotification = async () => {
                 </View>
                 <DotMatrixText text="CLEARED" dotSize={2.3} gap={0.95} color="#111113" />
                 <MathView
-                  latex={currentIntegral.latex}
-                  fallback={currentIntegral.notifText}
+                  latex={todaySolvedEntry.latex}
+                  fallback={todaySolvedEntry.notifText}
                   fontSize={20}
                   minHeight={62}
                 />
