@@ -6,17 +6,11 @@
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "scheme": "assign-integral",
-    "icon": "./assets/images/app_icon_dino.png",
-    "splash": {
-      "image": "./assets/images/app_icon_dino.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#F5F3EB"
-    },
+    "icon": "./assets/images/app_icon.jpg",
     "android": {
       "package": "com.assignintegral.app",
-      "edgeToEdgeEnabled": true,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/app_icon_dino.png",
+        "foregroundImage": "./assets/images/app_icon.jpg",
         "backgroundColor": "#F5F3EB"
       },
       "permissions": [
@@ -33,11 +27,29 @@
     "plugins": [
       "expo-router",
       [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-blank.png",
+          "backgroundColor": "#F5F3EB",
+          "imageWidth": 1
+        }
+      ],
+      [
         "expo-notifications",
         {
           "color": "#AEEE01"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "531e42bb-b159-4ad5-99fd-63d81facc67f"
+      }
+    }
   }
 }

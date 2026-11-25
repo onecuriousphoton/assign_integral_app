@@ -184,7 +184,7 @@ export default function FocusSolveModal({
             <MathView
               latex={integral.latex}
               fallback={integral.notifText}
-              fontSize={30}
+              fontSize={26}
               minHeight={130}
             />
           </View>
@@ -291,17 +291,20 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
     borderRadius: 28,
-    padding: 20,
+    paddingVertical: 18,
+    paddingHorizontal: 14,
     borderWidth: 1.5,
     borderColor: '#DFDFD6',
     borderBottomWidth: 6,
     borderBottomColor: '#CDCDC2',
     justifyContent: 'space-between',
+    overflow: 'hidden',
   },
   mathCardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingHorizontal: 4,
   },
   metaPill: {
     backgroundColor: '#F4F4EE',
@@ -326,7 +329,7 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'stretch',
     paddingVertical: 12,
   },
   paperHint: {
