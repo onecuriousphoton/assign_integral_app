@@ -1,4 +1,4 @@
-# 🦕 Integrosaurus
+# 🦕 Integrosaur
 
 > **Feed the beast one integral a day. Survive another day.**
 

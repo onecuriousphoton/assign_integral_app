@@ -42,7 +42,7 @@ export default function LaunchScreen({ visible, bottomInset, onFinish }) {
           />
 
           <View style={styles.titleStack}>
-            <DotMatrixText text="INTEGROSAROUS" dotSize={2} gap={1.2} color="#111113" />
+            <DotMatrixText text="INTEGROSAUR" dotSize={2} gap={1.2} color="#111113" />
           </View>
         </View>
 
